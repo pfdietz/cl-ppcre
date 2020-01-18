@@ -25,6 +25,16 @@
   (equalp (multiple-value-list (scan s "abcxy"))
           (list 0 4 #(0 2) #(3 3))))
 
+(let ((s (create-scanner (create-scanner "(([a-c])+)x"))))
+  (equalp (multiple-value-list (scan s "abcxy"))
+          (list 0 4 #(0 2) #(3 3))))
+
+(equalp (multiple-value-list (scan-to-strings "a" "b"))
+	(list nil))
+
+(equalp (multiple-value-list (cl-ppcre:scan-to-strings "a" "aa" :sharedp t))
+	(list "a" #()))
+
 (equalp (multiple-value-list (scan-to-strings "[^b]*b" "aaabd"))
         (list "aaab" #()))
 
@@ -130,6 +140,9 @@ frob")
 (equal (split ":" "a:b:c:d:e:f:g::")
        '("a" "b" "c" "d" "e" "f" "g"))
 
+(equal (split ":" "a:b:c:d:e:f:g::" :sharedp t)
+       '("a" "b" "c" "d" "e" "f" "g"))
+
 (equal (split ":" "a:b:c:d:e:f:g::" :limit 1)
        '("a:b:c:d:e:f:g::"))
 
@@ -142,6 +155,9 @@ frob")
 (equal (split ":" "a:b:c:d:e:f:g::" :limit 1000)
        '("a" "b" "c" "d" "e" "f" "g" "" ""))
 
+(equal (split ":" "a:b:c:d:e:f:g::" :limit 0)
+       '("a" "b" "c" "d" "e" "f" "g"))
+
 (equal (split ":" "a:b:c:d:e:f:g::" :limit -1)
        '("a" "b" "c" "d" "e" "f" "g" "" ""))
 
@@ -153,6 +169,15 @@ frob")
 
 (equal (multiple-value-list (regex-replace "(?i)fo+" "FOO bar" "frob"))
        (list "frob bar" t))
+
+(equal (multiple-value-list (regex-replace "Foo o" "Foo o bar" "frob" :preserve-case t))
+       (list "frob bar" t))
+
+(equal (multiple-value-list (regex-replace "Foo o" "xFoo o bar" "frob" :preserve-case t))
+       (list "xfrob bar" t))
+
+(equal (multiple-value-list (regex-replace "Foo o" "Foo ox bar" "frob" :preserve-case t))
+       (list "frobx bar" t))
 
 (equal (multiple-value-list (regex-replace "(?i)fo+" "FOO bar" "frob" :preserve-case t))
        (list "FROB bar" t))
@@ -180,6 +205,26 @@ frob")
 
 (string= (regex-replace-all "(?i)f(o+)" "foo Fooo FOOOO bar" "fr\\1b" :preserve-case t)
          "froob Frooob FROOOOB bar")
+
+(string= (regex-replace-all "(?i)f(o+)" "foo Fooo FOOoO bar" "fr\\1b" :preserve-case t)
+         "froob Frooob frOOoOb bar")
+
+(string= (regex-replace-all "(?i)F(O+)" "FOO fOOO fooOo BAR" "FR\\1B" :preserve-case t)
+         "FROOB FROOOB FRooOoB BAR")
+
+(string= (regex-replace-all "(?i)f(.+)" "Fo O" "X\\1y" :preserve-case t)
+	 "Xo Oy")
+
+(string= (regex-replace-all "(?i)f(.+)" "fo O" "X\\1y" :preserve-case t)
+	 "Xo Oy")
+
+(handler-case (progn (regex-replace "." "x" "\\0") nil)
+  (ppcre-invocation-error (e) e)
+  (error () nil))
+
+(handler-case (progn (regex-replace "." "x" "\\1") nil)
+  (ppcre-invocation-error (e) e)
+  (error () nil))
 
 (let ((qp-regex (create-scanner "[\\x80-\\xff]")))
   (flet ((encode-quoted-printable (string)
@@ -232,6 +277,15 @@ Version using SIMPLE-CALLS keyword argument."
                               (list "[" #'how-many " dots]")
                               :simple-calls t)
            "foo[3 dots]bar[5 dots][2 dots]baz[4 dots]frob"))
+
+(string= (regex-replace-all "x" "x x x" '(repl-test-fun))
+	 "/// /// ///")
+
+(string= (regex-replace-all "x" "x x x" '(repl-test-fun) :simple-calls t)
+	 "/// /// ///")
+
+(string= (regex-replace-all "(x)" "x x x" '(repl-test-fun) :simple-calls t)
+	 "/// /// ///")
 
 (flet ((my-repetition (char min)
          `(:greedy-repetition ,min nil ,char)))
@@ -368,6 +422,25 @@ characters if there's a match."
            (regex-replace-all (create-scanner "\\p{true}") "abcd" "+")))
    '("+b+d" "a+c+" "++++")))
 
+(let ((scanner (create-scanner "abc")))
+  (handler-case (progn (create-scanner scanner :case-insensitive-mode t) nil)
+    (ppcre-invocation-error (e) e)))
+
+(let ((scanner (create-scanner "abc")))
+  (handler-case (progn (create-scanner scanner :multi-line-mode t) nil)
+    (ppcre-invocation-error (e) e)))
+
+(let ((scanner (create-scanner "abc")))
+  (handler-case (progn (create-scanner scanner :single-line-mode t) nil)
+    (ppcre-invocation-error (e) e)))
+
+(handler-case (progn (create-scanner (list :group "xy") :extended-mode t) nil)
+  (ppcre-invocation-error (e) e))
+
+(let ((scanner (create-scanner "abc")))
+  (handler-case (progn (create-scanner scanner :extended-mode t) nil)
+    (ppcre-invocation-error (e) e)))
+
 (macrolet ((z () "(a)*b"))
   (equalp (multiple-value-list (scan (z) "xaaabd"))
           (list 1 5 #(3) #(4))))
@@ -375,3 +448,26 @@ characters if there's a match."
 (macrolet ((z () "[^b]*b"))
   (equalp (multiple-value-list (scan-to-strings (z)  "aaabd"))
           (list "aaab" #())))
+
+(member 'car (regex-apropos-list "car" (list (find-package "COMMON-LISP"))))
+
+(not (member 'car (regex-apropos-list "car" (list (find-package "COMMON-LISP")) :case-insensitive nil)))
+
+(scan "CAR" (with-output-to-string (*standard-output*)
+	      (regex-apropos "CAR" (list :cl))))
+
+(scan "IF " (with-output-to-string (*standard-output*)
+	     (regex-apropos "IF" :cl)))
+
+(scan "PUSH " (with-output-to-string (*standard-output*)
+		(regex-apropos "PUSH" :cl)))
+
+(scan "PI " (with-output-to-string (*standard-output*)
+		(regex-apropos "PI" :cl)))
+
+(scan "START " (with-output-to-string (*standard-output*)
+		 (regex-apropos "START" :keyword)))
+
+(scan "REAL " (with-output-to-string (*standard-output*)
+		 (regex-apropos "REAL" :cl)))
+

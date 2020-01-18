@@ -157,3 +157,9 @@ CL-PPCRE-UNICODE."
             (run-test-suite (funcall test :verbose verbose))))))
     (format t "~2&~:[Some tests failed~;All tests passed~]." successp)
     successp))
+
+;;; Function used in some replacement tests in simple
+(defun repl-test-fun (&rest r)
+  (declare (ignore r))
+  "///")
+
