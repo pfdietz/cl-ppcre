@@ -21,6 +21,8 @@
 
 (null (scan '(:greedy-repetition 4 6 #\b) "bbbc"))
 
+(null (scan "\\b" ""))
+
 (let ((s (create-scanner "(([a-c])+)x")))
   (equalp (multiple-value-list (scan s "abcxy"))
           (list 0 4 #(0 2) #(3 3))))
@@ -217,6 +219,36 @@ frob")
 
 (string= (regex-replace-all "(?i)f(.+)" "fo O" "X\\1y" :preserve-case t)
 	 "Xo Oy")
+
+(string= (regex-replace-all "(aa){2,3}" "aaaaxaayaaaaaaz" "X")
+	 "XxaayXz")
+
+(string= (regex-replace-all "(aa){3,5}" "aaaaxaayaaaaaaz" "X")
+	 "aaaaxaayXz")
+
+(string= (regex-replace-all (create-scanner ".{2,5}" :single-line-mode t)
+			    "abcdefghijkl" "x")
+	 "xxx")
+
+(string= (regex-replace-all (create-scanner ".{2,5}y" :single-line-mode t)
+			    "abcdefghijykl" "x")
+	 "abcdexkl")
+
+(string= (regex-replace-all (create-scanner "xa{2,3}y" :case-insensitive-mode t)
+			    "xaayxaaaayxaaayxaaaa" "0")
+	 "0xaaaay0xaaaa")
+
+(string= (regex-replace-all (create-scanner "x(aa){2,3}y" :case-insensitive-mode t)
+			    "xaayxaaaayxaaayxaaaa" "0")
+	 "xaay0xaaayxaaaa")
+
+(string= (regex-replace-all (create-scanner "a{3,5}" :case-insensitive-mode t)
+			    "xaayxaaaayxaaayxaaaa" "0")
+	 "xaayx0yx0yx0")
+
+(string= (regex-replace-all (create-scanner "(a|b){3,5}" :case-insensitive-mode t)
+			    "xaayxaaaayxaaayxaaaa" "0")
+	 "xaayx0yx0yx0")
 
 (handler-case (progn (regex-replace "." "x" "\\0") nil)
   (ppcre-invocation-error (e) e)
